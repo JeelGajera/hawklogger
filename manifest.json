@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "HawkLogger",
+  "version": "0.1.0",
+  "description": "Catch every request. Copy it. Ship the bug report.",
+  "action": {
+    "default_title": "HawkLogger"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [],
+  "permissions": ["sidePanel", "tabs", "scripting", "storage"],
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "32": "public/icons/icon32.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  }
+}

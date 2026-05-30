@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  release:
+    types: [created, published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Verify dist structure
+        run: |
+          test -f dist/manifest.json
+          test -f dist/sidepanel/index.html
+          test -f dist/injected.js
+
+      - name: Read package version
+        id: package
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Package extension
+        shell: bash
+        run: |
+          cd dist
+          zip -r ../hawklogger-${{ steps.package.outputs.version }}.zip .
+
+      - name: Upload release artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          files: hawklogger-${{ steps.package.outputs.version }}.zip
+          fail_on_unmatched_files: true
