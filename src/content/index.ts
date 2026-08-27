@@ -1,4 +1,24 @@
+import type { CaptureSettings, ExtensionMessage } from '../types';
+import { HAWKLOGGER_SETTINGS_MESSAGE } from '../utils/bridgeMessages';
+
+void chrome.runtime
+  .sendMessage({ type: 'GET_CAPTURE_SETTINGS' } satisfies ExtensionMessage)
+  .then((response: { settings: CaptureSettings } | undefined) => {
+    if (response?.settings) relaySettingsToPage(response.settings);
+  })
+  .catch(() => {});
+
+chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
+  if (message.type === 'CAPTURE_SETTINGS_UPDATED') {
+    relaySettingsToPage(message.settings);
+  }
+});
+
 window.addEventListener('message', bridgeHawkLoggerMessage);
+
+function relaySettingsToPage(settings: CaptureSettings): void {
+  window.postMessage({ __DEVTOOL_SOURCE__: true, type: HAWKLOGGER_SETTINGS_MESSAGE, settings }, '*');
+}
 
 function bridgeHawkLoggerMessage(event: MessageEvent): void {
   if (event.source !== window) return;

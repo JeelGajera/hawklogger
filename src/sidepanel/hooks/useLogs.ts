@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CaptureSettings, ExtensionMessage, NetworkLog } from '../../types';
 
-const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { mode: 'all', sites: [] };
+const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
+  mode: 'all',
+  sites: [],
+  snapshot: { console: false, cookies: false, localStorage: false, sessionStorage: false },
+};
 
 interface ActiveTabState {
   tabId: number | null;
@@ -94,6 +98,11 @@ export function useLogs() {
   }, [activeTab.tabId]);
 
   const updateCaptureSettings = useCallback((settings: CaptureSettings) => {
+    // Apply optimistically so rapid successive toggles (e.g. several
+    // Failure Snapshot checkboxes clicked back to back) each build on the
+    // latest local state instead of racing the background round-trip and
+    // clobbering one another.
+    setCaptureSettingsState(settings);
     const message: ExtensionMessage = { type: 'UPDATE_CAPTURE_SETTINGS', settings };
     chrome.runtime.sendMessage(message, (response: { settings: CaptureSettings } | undefined) => {
       if (chrome.runtime.lastError) return;

@@ -1,7 +1,35 @@
-import type { ExtensionMessage, HttpMethod, NetworkLog } from '../types';
+import type {
+  ConsoleLevel,
+  ConsoleLogEntry,
+  ExtensionMessage,
+  HttpMethod,
+  NetworkLog,
+  SnapshotSettings,
+  StorageSnapshot,
+} from '../types';
+import { HAWKLOGGER_SETTINGS_MESSAGE } from '../utils/bridgeMessages';
+import {
+  CONSOLE_BUFFER_TRIM_TO,
+  MAX_CONSOLE_ATTACHED,
+  MAX_CONSOLE_BUFFER,
+  MAX_CONSOLE_MESSAGE_LENGTH,
+  MAX_STORAGE_ENTRIES,
+  MAX_STORAGE_VALUE_LENGTH,
+} from '../utils/limits';
+import { RingBuffer } from '../utils/ringBuffer';
 
 const MAX_BODY_SIZE = 1 * 1024 * 1024;
 const BINARY_BODY_PLACEHOLDER = '[binary data - body not captured]';
+
+const consoleBuffer = new RingBuffer<ConsoleLogEntry>(MAX_CONSOLE_BUFFER, CONSOLE_BUFFER_TRIM_TO);
+
+const DEFAULT_SNAPSHOT_SETTINGS: SnapshotSettings = {
+  console: false,
+  cookies: false,
+  localStorage: false,
+  sessionStorage: false,
+};
+let snapshotSettings: SnapshotSettings = DEFAULT_SNAPSHOT_SETTINGS;
 
 let requestCounter = 0;
 const windowWithState = window as Window &
@@ -13,6 +41,109 @@ if (!windowWithState.__HAWKLOGGER_INSTALLED__) {
   windowWithState.__HAWKLOGGER_INSTALLED__ = true;
   installFetchInterceptor();
   installXhrInterceptor();
+  installConsoleInterceptor();
+  installGlobalErrorCapture();
+  installSettingsListener();
+}
+
+function installSettingsListener(): void {
+  window.addEventListener('message', (event: MessageEvent) => {
+    if (event.source !== window) return;
+    const data = event.data as { __DEVTOOL_SOURCE__?: boolean; type?: string; settings?: { snapshot?: SnapshotSettings } };
+    if (data?.__DEVTOOL_SOURCE__ !== true || data.type !== HAWKLOGGER_SETTINGS_MESSAGE) return;
+    if (data.settings?.snapshot) snapshotSettings = data.settings.snapshot;
+  });
+}
+
+function buildStorageSnapshot(): StorageSnapshot | undefined {
+  if (!snapshotSettings.localStorage && !snapshotSettings.sessionStorage) return undefined;
+
+  const snapshot: StorageSnapshot = {};
+  let truncated = false;
+
+  if (snapshotSettings.localStorage) {
+    const { entries, truncated: didTruncate } = readWebStorage(window.localStorage);
+    snapshot.localStorage = entries;
+    truncated ||= didTruncate;
+  }
+  if (snapshotSettings.sessionStorage) {
+    const { entries, truncated: didTruncate } = readWebStorage(window.sessionStorage);
+    snapshot.sessionStorage = entries;
+    truncated ||= didTruncate;
+  }
+
+  snapshot.truncated = truncated;
+  return snapshot;
+}
+
+function readWebStorage(storage: Storage): { entries: Record<string, string>; truncated: boolean } {
+  const entries: Record<string, string> = {};
+  const count = Math.min(storage.length, MAX_STORAGE_ENTRIES);
+  for (let i = 0; i < count; i++) {
+    const key = storage.key(i);
+    if (key == null) continue;
+    const value = storage.getItem(key) ?? '';
+    entries[key] =
+      value.length > MAX_STORAGE_VALUE_LENGTH ? `${value.slice(0, MAX_STORAGE_VALUE_LENGTH)}...` : value;
+  }
+  return { entries, truncated: storage.length > MAX_STORAGE_ENTRIES };
+}
+
+function installConsoleInterceptor(): void {
+  const levels: ConsoleLevel[] = ['log', 'info', 'warn', 'error', 'debug'];
+  for (const level of levels) {
+    const original = console[level].bind(console);
+    console[level] = (...args: unknown[]) => {
+      recordConsoleEntry(level, args);
+      original(...args);
+    };
+  }
+}
+
+function installGlobalErrorCapture(): void {
+  window.addEventListener('error', (event: ErrorEvent) => {
+    const location = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : '';
+    recordConsoleEntry('error', [`Uncaught: ${event.message}${location}`]);
+  });
+
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    recordConsoleEntry('error', ['Unhandled promise rejection:', event.reason]);
+  });
+}
+
+function recordConsoleEntry(level: ConsoleLevel, args: unknown[]): void {
+  consoleBuffer.push({
+    level,
+    message: stringifyConsoleArgs(args),
+    timestamp: new Date().toISOString(),
+  });
+}
+
+function stringifyConsoleArgs(args: unknown[]): string {
+  const parts = args.map((arg) => {
+    if (typeof arg === 'string') return arg;
+    if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+    try {
+      return JSON.stringify(arg);
+    } catch {
+      return String(arg);
+    }
+  });
+  const joined = parts.join(' ');
+  return joined.length > MAX_CONSOLE_MESSAGE_LENGTH
+    ? `${joined.slice(0, MAX_CONSOLE_MESSAGE_LENGTH)}...`
+    : joined;
+}
+
+function getRecentConsoleLogs(): ConsoleLogEntry[] | undefined {
+  if (!snapshotSettings.console) return undefined;
+  return consoleBuffer.recent(MAX_CONSOLE_ATTACHED);
+}
+
+/** Failure Snapshot data: only ever gathered for failed requests. */
+function failureSnapshot(isError: boolean): Pick<NetworkLog, 'consoleLogs' | 'storageSnapshot'> {
+  if (!isError) return {};
+  return { consoleLogs: getRecentConsoleLogs(), storageSnapshot: buildStorageSnapshot() };
 }
 
 function installFetchInterceptor(): void {
@@ -50,6 +181,7 @@ function installFetchInterceptor(): void {
         resBody: null,
         error: networkError instanceof Error ? networkError.message : String(networkError),
         isError: true,
+        ...failureSnapshot(true),
       };
       sendLog(log);
       throw networkError;
@@ -74,6 +206,7 @@ function installFetchInterceptor(): void {
         resHeaders,
         resBody: skippedBody,
         isError: status >= 400,
+        ...failureSnapshot(status >= 400),
       };
       sendLog(log);
       return response;
@@ -96,6 +229,7 @@ function installFetchInterceptor(): void {
           resHeaders,
           resBody: parseBody(text),
           isError: status >= 400,
+          ...failureSnapshot(status >= 400),
         };
         sendLog(log);
       })
@@ -112,6 +246,7 @@ function installFetchInterceptor(): void {
           resHeaders,
           resBody: '[binary or streaming - body not captured]',
           isError: status >= 400,
+          ...failureSnapshot(status >= 400),
         };
         sendLog(log);
       });
@@ -173,6 +308,7 @@ function installXhrInterceptor(): void {
         resBody: readXhrBody(xhr),
         error: status === 0 ? 'XMLHttpRequest failed or was blocked' : undefined,
         isError: status === 0 || status >= 400,
+        ...failureSnapshot(status === 0 || status >= 400),
       };
       sendLog(log);
     });

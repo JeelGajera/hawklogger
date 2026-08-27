@@ -1,10 +1,21 @@
-import type { CaptureSettings, ExtensionMessage, NetworkLog } from '../types';
+import type { CaptureSettings, ExtensionMessage, NetworkLog, SnapshotSettings } from '../types';
+import { MAX_STORAGE_ENTRIES, MAX_STORAGE_VALUE_LENGTH } from '../utils/limits';
 
 const store = new Map<number, NetworkLog[]>();
 const hydratedTabs = new Set<number>();
 const tabWriteQueues = new Map<number, Promise<void>>();
 const MAX_LOGS_PER_TAB = 150;
-const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { mode: 'all', sites: [] };
+const DEFAULT_SNAPSHOT_SETTINGS: SnapshotSettings = {
+  console: false,
+  cookies: false,
+  localStorage: false,
+  sessionStorage: false,
+};
+const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
+  mode: 'all',
+  sites: [],
+  snapshot: DEFAULT_SNAPSHOT_SETTINGS,
+};
 const CAPTURE_SETTINGS_KEY = 'captureSettings';
 
 let captureSettings = DEFAULT_CAPTURE_SETTINGS;
@@ -25,7 +36,7 @@ chrome.runtime.onMessage.addListener(
         if (tabId == null) break;
         if (!shouldCapture(sender.tab?.url)) break;
 
-        enqueueAppendLog(tabId, message.payload);
+        enqueueAppendLog(tabId, message.payload, sender.tab?.url);
         break;
       }
 
@@ -82,13 +93,38 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-function enqueueAppendLog(tabId: number, log: NetworkLog): void {
+function enqueueAppendLog(tabId: number, log: NetworkLog, tabUrl: string | undefined): void {
   const previousWrite = tabWriteQueues.get(tabId) ?? Promise.resolve();
   const nextWrite = previousWrite
     .catch(() => {})
-    .then(() => appendLog(tabId, log))
+    .then(async () => appendLog(tabId, await attachCookieSnapshot(log, tabUrl)))
     .catch(console.error);
   tabWriteQueues.set(tabId, nextWrite);
+}
+
+async function attachCookieSnapshot(log: NetworkLog, tabUrl: string | undefined): Promise<NetworkLog> {
+  if (!log.isError || !captureSettings.snapshot.cookies || tabUrl == null) return log;
+
+  try {
+    const cookies = await chrome.cookies.getAll({ url: tabUrl });
+    const entries: Record<string, string> = {};
+    for (const cookie of cookies.slice(0, MAX_STORAGE_ENTRIES)) {
+      entries[cookie.name] =
+        cookie.value.length > MAX_STORAGE_VALUE_LENGTH
+          ? `${cookie.value.slice(0, MAX_STORAGE_VALUE_LENGTH)}...`
+          : cookie.value;
+    }
+    return {
+      ...log,
+      storageSnapshot: {
+        ...log.storageSnapshot,
+        cookies: entries,
+        truncated: Boolean(log.storageSnapshot?.truncated) || cookies.length > MAX_STORAGE_ENTRIES,
+      },
+    };
+  } catch {
+    return log;
+  }
 }
 
 async function appendLog(tabId: number, log: NetworkLog): Promise<void> {
@@ -166,6 +202,12 @@ function normalizeCaptureSettings(settings: CaptureSettings): CaptureSettings {
   return {
     mode: settings.mode === 'saved' ? 'saved' : 'all',
     sites,
+    snapshot: {
+      console: Boolean(settings.snapshot?.console),
+      cookies: Boolean(settings.snapshot?.cookies),
+      localStorage: Boolean(settings.snapshot?.localStorage),
+      sessionStorage: Boolean(settings.snapshot?.sessionStorage),
+    },
   };
 }
 
@@ -208,7 +250,19 @@ function broadcastToPanel(tabId: number, logs: NetworkLog[]): void {
 }
 
 function broadcastCaptureSettings(): void {
-  chrome.runtime
-    .sendMessage({ type: 'CAPTURE_SETTINGS_UPDATED', settings: captureSettings } satisfies ExtensionMessage)
+  const message: ExtensionMessage = { type: 'CAPTURE_SETTINGS_UPDATED', settings: captureSettings };
+
+  // runtime.sendMessage only reaches other extension pages (sidepanel,
+  // popup) - content scripts in web tabs only receive messages sent via
+  // tabs.sendMessage, so they need to be notified individually.
+  chrome.runtime.sendMessage(message).catch(() => {});
+  chrome.tabs
+    .query({})
+    .then((tabs) => {
+      for (const tab of tabs) {
+        if (tab.id == null) continue;
+        chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+      }
+    })
     .catch(() => {});
 }

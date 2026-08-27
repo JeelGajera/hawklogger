@@ -1,5 +1,20 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
+export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
+
+export interface ConsoleLogEntry {
+  level: ConsoleLevel;
+  message: string;
+  timestamp: string;
+}
+
+export interface StorageSnapshot {
+  cookies?: Record<string, string>;
+  localStorage?: Record<string, string>;
+  sessionStorage?: Record<string, string>;
+  truncated?: boolean;
+}
+
 export interface NetworkLog {
   id: string;
   url: string;
@@ -13,6 +28,8 @@ export interface NetworkLog {
   resBody: unknown | null;
   error?: string;
   isError: boolean;
+  consoleLogs?: ConsoleLogEntry[];
+  storageSnapshot?: StorageSnapshot;
 }
 
 export interface FilterState {
@@ -25,6 +42,19 @@ export interface FilterState {
 export interface CaptureSettings {
   mode: 'all' | 'saved';
   sites: string[];
+  snapshot: SnapshotSettings;
+}
+
+/**
+ * Controls the Failure Snapshot feature: extra context captured for failed
+ * requests only (network errors, 4xx, 5xx). Each field is an independent
+ * opt-in since cookies and storage can contain sensitive data.
+ */
+export interface SnapshotSettings {
+  console: boolean;
+  cookies: boolean;
+  localStorage: boolean;
+  sessionStorage: boolean;
 }
 
 export type ExtensionMessage =
