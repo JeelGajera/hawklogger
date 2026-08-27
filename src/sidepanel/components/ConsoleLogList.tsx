@@ -6,17 +6,17 @@ interface ConsoleLogListProps {
 
 export function ConsoleLogList({ entries }: ConsoleLogListProps) {
   return (
-    <div className="max-h-48 overflow-y-auto rounded border border-[#1e1e1e] bg-[#0a0a0a]">
+    <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-code)]">
       {entries.map((entry, index) => (
         <div
           key={index}
-          className="flex gap-2 border-b border-[#161616] px-2 py-1 font-mono text-[11px] last:border-b-0"
+          className="flex gap-2 border-b border-[var(--border-subtle)] px-2 py-1 font-mono text-[11px] last:border-b-0"
         >
-          <span className="shrink-0 text-[#444]">{formatTime(entry.timestamp)}</span>
+          <span className="shrink-0 text-[var(--text-muted)]">{formatTime(entry.timestamp)}</span>
           <span className={`shrink-0 font-bold ${levelClass(entry.level)}`}>
             {entry.level.toUpperCase()}
           </span>
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-all text-[#aaa]">
+          <span className="min-w-0 flex-1 text-[var(--text-secondary)] break-all whitespace-pre-wrap">
             {entry.message}
           </span>
         </div>
@@ -31,8 +31,8 @@ function formatTime(isoTimestamp: string): string {
 }
 
 function levelClass(level: ConsoleLogEntry['level']): string {
-  if (level === 'error') return 'text-[#E24B4A]';
-  if (level === 'warn') return 'text-[#F59E0B]';
-  if (level === 'info') return 'text-[#3B82F6]';
-  return 'text-[#666]';
+  if (level === 'error') return 'text-[var(--danger)]';
+  if (level === 'warn') return 'text-[var(--warning)]';
+  if (level === 'info') return 'text-[var(--info)]';
+  return 'text-[var(--text-tertiary)]';
 }

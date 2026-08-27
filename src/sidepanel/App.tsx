@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FilterState, HttpMethod } from '../types';
 import { CaptureSettingsPanel } from './components/CaptureSettingsPanel';
 import { FilterBar } from './components/FilterBar';
@@ -6,6 +6,7 @@ import { LogList } from './components/LogList';
 import { Toolbar } from './components/Toolbar';
 import { useExportLogs } from './hooks/useExportLogs';
 import { useLogs } from './hooks/useLogs';
+import { useTheme } from './hooks/useTheme';
 
 const DEFAULT_FILTER: FilterState = {
   methods: [],
@@ -17,9 +18,11 @@ const DEFAULT_FILTER: FilterState = {
 export default function App() {
   const { logs, clearLogs, currentSite, captureSettings, updateCaptureSettings } = useLogs();
   const { exportLogs } = useExportLogs();
+  const { theme, setTheme } = useTheme();
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -58,6 +61,12 @@ export default function App() {
     });
   }, [filter, logs]);
 
+  const stats = useMemo(() => {
+    let errors = 0;
+    for (const log of logs) if (log.isError) errors++;
+    return { total: logs.length, errors };
+  }, [logs]);
+
   const handleExportAll = useCallback(async () => {
     if (filteredLogs.length === 0 || exporting) return;
     setExporting(true);
@@ -80,21 +89,47 @@ export default function App() {
     }));
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isTyping = target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(target.tagName);
+
+      if (event.key === '/' && !isTyping) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (event.key === 'Escape') {
+        if (target instanceof HTMLInputElement && target === searchInputRef.current) {
+          target.blur();
+        } else {
+          setSettingsOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#0f0f0f] text-[#e5e5e5]">
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)]">
       <Toolbar
-        totalCount={logs.length}
+        totalCount={stats.total}
         filteredCount={filteredLogs.length}
+        errorCount={stats.errors}
         errorsOnly={filter.errorsOnly}
         onToggleErrorsOnly={() =>
           setFilter((current) => ({ ...current, errorsOnly: !current.errorsOnly }))
         }
         onClear={clearLogs}
+        settingsOpen={settingsOpen}
         onToggleSettings={() => setSettingsOpen((open) => !open)}
         onExportAll={() => void handleExportAll()}
         exporting={exporting}
         searchText={filter.searchText}
         onSearchChange={(text) => setFilter((current) => ({ ...current, searchText: text }))}
+        searchInputRef={searchInputRef}
+        theme={theme}
+        onThemeChange={setTheme}
       />
       {settingsOpen && (
         <CaptureSettingsPanel
