@@ -30,15 +30,28 @@ page's MAIN world.
 ## Architecture
 
 ```text
-[webpage]          -> injected.ts   MAIN world, can see window.fetch
-[bridge]           -> content.ts    ISOLATED world, bridges page to extension
-[storage/dispatch] -> background.ts service worker, holds log store
-[UI]               -> sidepanel/    React app, renders logs and copies Markdown
+[webpage]          -> injected.ts   MAIN world, can see window.fetch, localStorage, console
+[bridge]           -> content.ts    ISOLATED world, bridges page to extension (both directions)
+[storage/dispatch] -> background.ts service worker, holds log store, calls chrome.cookies
+[UI]               -> sidepanel/    React app, renders logs and copies/exports Markdown
 ```
 
-Never add business logic to `content.ts`. It is a bridge only.
+Never add business logic to `content.ts`. It is a bridge only, in both
+directions: page -> extension (`NEW_LOG`) and extension -> page (capture
+settings, relayed via `window.postMessage` so `injected.ts` - which has no
+`chrome.*` API access in the MAIN world - knows what to capture).
 Never add UI code to `background.ts`. It has no DOM.
 Never read the response body without cloning first. See `injected.ts`.
+
+`chrome.runtime.sendMessage` from the background only reaches other
+extension pages (sidepanel, popup) - it does **not** reach content scripts.
+To notify a tab's content script, use `chrome.tabs.sendMessage(tabId, ...)`.
+See `broadcastCaptureSettings` in `background/index.ts`.
+
+Failure Snapshot data (console logs, cookies, storage) is only ever gathered
+for failed requests, and each field is capped in `src/utils/limits.ts` before
+it's attached to a log - keep new capture code within those caps so a chatty
+page can't blow up memory or `chrome.storage.session` quota.
 
 ## Running Tests
 

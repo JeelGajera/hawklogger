@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { NetworkLog } from '../../types';
 import { buildMarkdown } from '../../utils/buildMarkdown';
 import { formatBody } from '../../utils/parseBody';
-import { redact, redactHeaders } from '../../utils/redact';
+import { redact, redactHeaders, redactStorageSnapshot } from '../../utils/redact';
+import { ConsoleLogList } from './ConsoleLogList';
 
 interface LogDetailProps {
   log: NetworkLog;
@@ -26,6 +27,7 @@ export function LogDetail({ log }: LogDetailProps) {
   const redactedResHeaders = redactHeaders(log.resHeaders);
   const redactedReqBody = log.reqBody != null ? redact(log.reqBody) : null;
   const redactedResBody = log.resBody != null ? redact(log.resBody) : null;
+  const storageSnapshot = log.storageSnapshot != null ? redactStorageSnapshot(log.storageSnapshot) : null;
 
   return (
     <div className="border-t border-[#2a2a2a] bg-[#111] px-3 py-3">
@@ -61,6 +63,30 @@ export function LogDetail({ log }: LogDetailProps) {
           <p className="font-mono text-[11px] text-[#555]">(empty body)</p>
         )}
       </Section>
+
+      {log.consoleLogs != null && log.consoleLogs.length > 0 && (
+        <Section title="CONSOLE LOGS">
+          <ConsoleLogList entries={log.consoleLogs} />
+        </Section>
+      )}
+
+      {storageSnapshot != null && (
+        <Section title="FAILURE SNAPSHOT">
+          {storageSnapshot.cookies != null && Object.keys(storageSnapshot.cookies).length > 0 && (
+            <DetailBlock label="Cookies" data={storageSnapshot.cookies} />
+          )}
+          {storageSnapshot.localStorage != null && Object.keys(storageSnapshot.localStorage).length > 0 && (
+            <DetailBlock label="Local Storage" data={storageSnapshot.localStorage} />
+          )}
+          {storageSnapshot.sessionStorage != null &&
+            Object.keys(storageSnapshot.sessionStorage).length > 0 && (
+              <DetailBlock label="Session Storage" data={storageSnapshot.sessionStorage} />
+            )}
+          {storageSnapshot.truncated && (
+            <p className="text-[10px] text-[#F59E0B]">Snapshot truncated - some entries omitted.</p>
+          )}
+        </Section>
+      )}
     </div>
   );
 }

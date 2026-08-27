@@ -5,6 +5,8 @@ interface ToolbarProps {
   onToggleErrorsOnly: () => void;
   onClear: () => void;
   onToggleSettings: () => void;
+  onExportAll: () => void;
+  exporting: boolean;
   searchText: string;
   onSearchChange: (text: string) => void;
 }
@@ -16,11 +18,13 @@ export function Toolbar({
   onToggleErrorsOnly,
   onClear,
   onToggleSettings,
+  onExportAll,
+  exporting,
   searchText,
   onSearchChange,
 }: ToolbarProps) {
   return (
-    <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 border-b border-[#2a2a2a] bg-[#141414] px-3 py-2">
+    <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto_auto] items-center gap-2 border-b border-[#2a2a2a] bg-[#141414] px-3 py-2">
       <span className="text-sm font-bold text-[#5B4FCF]">HL</span>
       <input
         type="text"
@@ -43,6 +47,14 @@ export function Toolbar({
         }
       >
         Errors
+      </button>
+      <button
+        onClick={onExportAll}
+        disabled={exporting || filteredCount === 0}
+        title="Export visible logs as a single Markdown file"
+        className="shrink-0 rounded border border-[#2a2a2a] px-2 py-1 text-xs text-[#888] transition-colors hover:border-[#5B4FCF] hover:text-[#e5e5e5] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#2a2a2a] disabled:hover:text-[#888]"
+      >
+        {exporting ? 'Exporting...' : 'Export'}
       </button>
       <button
         onClick={onClear}

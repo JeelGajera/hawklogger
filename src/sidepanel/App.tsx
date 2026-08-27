@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { FilterState, HttpMethod } from '../types';
 import { CaptureSettingsPanel } from './components/CaptureSettingsPanel';
 import { FilterBar } from './components/FilterBar';
 import { LogList } from './components/LogList';
 import { Toolbar } from './components/Toolbar';
+import { useExportLogs } from './hooks/useExportLogs';
 import { useLogs } from './hooks/useLogs';
 
 const DEFAULT_FILTER: FilterState = {
@@ -15,8 +16,10 @@ const DEFAULT_FILTER: FilterState = {
 
 export default function App() {
   const { logs, clearLogs, currentSite, captureSettings, updateCaptureSettings } = useLogs();
+  const { exportLogs } = useExportLogs();
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -55,6 +58,19 @@ export default function App() {
     });
   }, [filter, logs]);
 
+  const handleExportAll = useCallback(async () => {
+    if (filteredLogs.length === 0 || exporting) return;
+    setExporting(true);
+    try {
+      const markdown = await exportLogs(filteredLogs);
+      downloadMarkdown(markdown);
+    } catch (error) {
+      console.error('HawkLogger export failed', error);
+    } finally {
+      setExporting(false);
+    }
+  }, [exportLogs, exporting, filteredLogs]);
+
   const updateMethod = (method: HttpMethod) => {
     setFilter((current) => ({
       ...current,
@@ -75,6 +91,8 @@ export default function App() {
         }
         onClear={clearLogs}
         onToggleSettings={() => setSettingsOpen((open) => !open)}
+        onExportAll={() => void handleExportAll()}
+        exporting={exporting}
         searchText={filter.searchText}
         onSearchChange={(text) => setFilter((current) => ({ ...current, searchText: text }))}
       />
@@ -94,4 +112,14 @@ export default function App() {
       <LogList logs={filteredLogs} />
     </div>
   );
+}
+
+function downloadMarkdown(markdown: string): void {
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `hawklogger-export-${new Date().toISOString().replace(/[:.]/g, '-')}.md`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redact, redactHeaders } from './redact';
+import { redact, redactHeaders, redactStorageSnapshot } from './redact';
 
 describe('redact', () => {
   it('redacts known sensitive keys', () => {
@@ -53,5 +53,34 @@ describe('redactHeaders', () => {
     const result = redactHeaders(headers);
     expect(result.authorization).toBe('[REDACTED]');
     expect(result['content-type']).toBe('application/json');
+  });
+});
+
+describe('redactStorageSnapshot', () => {
+  it('redacts sensitive cookie names but keeps benign ones', () => {
+    const result = redactStorageSnapshot({
+      cookies: { sessionid: 'abc123', theme: 'dark' },
+    });
+    expect(result.cookies).toEqual({ sessionid: '[REDACTED]', theme: 'dark' });
+  });
+
+  it('redacts sensitive localStorage and sessionStorage keys', () => {
+    const result = redactStorageSnapshot({
+      localStorage: { token: 'secret-token', lastPage: '/dashboard' },
+      sessionStorage: { jwt: 'xyz', draftId: 'draft-42' },
+    });
+    expect(result.localStorage).toEqual({ token: '[REDACTED]', lastPage: '/dashboard' });
+    expect(result.sessionStorage).toEqual({ jwt: '[REDACTED]', draftId: 'draft-42' });
+  });
+
+  it('leaves fields that are not present untouched', () => {
+    const result = redactStorageSnapshot({ cookies: { theme: 'dark' } });
+    expect(result.localStorage).toBeUndefined();
+    expect(result.sessionStorage).toBeUndefined();
+  });
+
+  it('preserves non-storage fields like truncated', () => {
+    const result = redactStorageSnapshot({ cookies: { theme: 'dark' }, truncated: true });
+    expect(result.truncated).toBe(true);
   });
 });

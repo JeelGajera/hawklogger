@@ -19,6 +19,10 @@ export function CaptureSettingsPanel({
     onChange({ ...settings, mode });
   };
 
+  const toggleSnapshot = (key: keyof CaptureSettings['snapshot']) => {
+    onChange({ ...settings, snapshot: { ...settings.snapshot, [key]: !settings.snapshot[key] } });
+  };
+
   const addSite = (site: string | null) => {
     const normalized = normalizeSite(site ?? '');
     if (normalized == null) return;
@@ -105,7 +109,7 @@ export function CaptureSettingsPanel({
       )}
 
       {settings.sites.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mb-3 flex flex-wrap gap-1.5">
           {settings.sites.map((site) => (
             <button
               key={site}
@@ -118,9 +122,77 @@ export function CaptureSettingsPanel({
           ))}
         </div>
       ) : (
-        <div className="text-[11px] text-[#555]">No saved sites yet.</div>
+        <div className="mb-3 text-[11px] text-[#555]">No saved sites yet.</div>
       )}
+
+      <div className="border-t border-[#2a2a2a] pt-3">
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#555]">
+          Failure Snapshot
+        </div>
+        <div className="mb-2 text-[10px] text-[#666]">
+          Extra context auto-captured for failed requests only. Stored on-device only.
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <SnapshotToggle
+            label="Console logs"
+            checked={settings.snapshot.console}
+            onClick={() => toggleSnapshot('console')}
+          />
+          <SnapshotToggle
+            label="Cookies"
+            sensitive
+            checked={settings.snapshot.cookies}
+            onClick={() => toggleSnapshot('cookies')}
+          />
+          <SnapshotToggle
+            label="Local storage"
+            sensitive
+            checked={settings.snapshot.localStorage}
+            onClick={() => toggleSnapshot('localStorage')}
+          />
+          <SnapshotToggle
+            label="Session storage"
+            sensitive
+            checked={settings.snapshot.sessionStorage}
+            onClick={() => toggleSnapshot('sessionStorage')}
+          />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function SnapshotToggle({
+  label,
+  checked,
+  onClick,
+  sensitive,
+}: {
+  label: string;
+  checked: boolean;
+  onClick: () => void;
+  sensitive?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={sensitive ? 'May contain sensitive data' : undefined}
+      className={
+        checked
+          ? 'flex items-center gap-1.5 rounded border border-[#5B4FCF] bg-[#5B4FCF]/10 px-2 py-1.5 text-left text-[11px] text-[#e5e5e5]'
+          : 'flex items-center gap-1.5 rounded border border-[#2a2a2a] px-2 py-1.5 text-left text-[11px] text-[#888] hover:text-[#e5e5e5]'
+      }
+    >
+      <span
+        className={
+          checked
+            ? 'h-2.5 w-2.5 shrink-0 rounded-sm bg-[#5B4FCF]'
+            : 'h-2.5 w-2.5 shrink-0 rounded-sm border border-[#555]'
+        }
+      />
+      <span className="min-w-0 truncate">{label}</span>
+      {sensitive && <span className="ml-auto shrink-0 text-[9px] text-[#F59E0B]">!</span>}
+    </button>
   );
 }
 

@@ -1,3 +1,5 @@
+import type { StorageSnapshot } from '../types';
+
 const SENSITIVE_KEYS = new Set([
   'authorization',
   'cookie',
@@ -20,6 +22,13 @@ const SENSITIVE_KEYS = new Set([
   'cvv',
   'private_key',
   'client_secret',
+  'session',
+  'sessionid',
+  'sid',
+  'jwt',
+  'csrf',
+  'xsrf',
+  'connect.sid',
 ]);
 
 const REDACTED = '[REDACTED]';
@@ -48,4 +57,20 @@ export function redactHeaders(headers: Record<string, string>): Record<string, s
     result[key] = SENSITIVE_KEYS.has(key.toLowerCase()) ? REDACTED : value;
   }
   return result;
+}
+
+/** Same rules as redactHeaders, applied to cookie names / storage keys. */
+export function redactKeyedValues(values: Record<string, string>): Record<string, string> {
+  return redactHeaders(values);
+}
+
+export function redactStorageSnapshot(snapshot: StorageSnapshot): StorageSnapshot {
+  return {
+    ...snapshot,
+    ...(snapshot.cookies != null ? { cookies: redactKeyedValues(snapshot.cookies) } : {}),
+    ...(snapshot.localStorage != null ? { localStorage: redactKeyedValues(snapshot.localStorage) } : {}),
+    ...(snapshot.sessionStorage != null
+      ? { sessionStorage: redactKeyedValues(snapshot.sessionStorage) }
+      : {}),
+  };
 }
