@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FilterState, HttpMethod } from '../types';
+import { safeDecode } from '../utils/parseUrl';
 import { CaptureSettingsPanel } from './components/CaptureSettingsPanel';
 import { FilterBar } from './components/FilterBar';
 import { LogList } from './components/LogList';
@@ -47,7 +48,9 @@ export default function App() {
 
       if (filter.searchText.trim() !== '') {
         const needle = filter.searchText.toLowerCase();
-        const inUrl = log.url.toLowerCase().includes(needle);
+        const inUrl =
+          log.url.toLowerCase().includes(needle) ||
+          safeDecode(log.url).toLowerCase().includes(needle);
         const inBody =
           typeof log.resBody === 'string'
             ? log.resBody.toLowerCase().includes(needle)

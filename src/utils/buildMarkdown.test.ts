@@ -100,4 +100,18 @@ describe('buildMarkdown', () => {
     });
     expect(md).toContain('snapshot truncated');
   });
+
+  it('includes a Query Params section when the URL has a query string', () => {
+    const md = buildMarkdown({
+      ...baseLog,
+      url: 'https://api.example.com/users?active=true&sort=name',
+    });
+    expect(md).toContain('### Query Params');
+    expect(md).toContain('"active": "true"');
+    expect(md).toContain('"sort": "name"');
+  });
+
+  it('omits Query Params section when the URL has no query string', () => {
+    expect(buildMarkdown(baseLog)).not.toContain('### Query Params');
+  });
 });
