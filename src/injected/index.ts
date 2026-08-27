@@ -154,12 +154,13 @@ function installFetchInterceptor(): void {
     const startTime = Date.now();
     const [resource, config] = args;
     const request = resource instanceof Request ? resource : null;
-    const url =
+    const url = resolveUrl(
       typeof resource === 'string'
         ? resource
         : resource instanceof URL
           ? resource.toString()
-          : resource.url;
+          : resource.url,
+    );
     const method = getFetchMethod(request, config);
     const reqHeaders = getFetchHeaders(request, config);
     const reqBody = config?.body != null ? parseBody(config.body) : null;
@@ -276,7 +277,7 @@ function installXhrInterceptor(): void {
       password?: string | null,
     ): void {
       method = normalizeMethod(rawMethod);
-      url = rawUrl.toString();
+      url = resolveUrl(rawUrl.toString());
       originalOpen(rawMethod, rawUrl, async ?? true, username ?? undefined, password ?? undefined);
     };
 
@@ -322,6 +323,20 @@ function installXhrInterceptor(): void {
 
 function nextRequestId(): string {
   return `req_${Date.now()}_${requestCounter++}`;
+}
+
+/**
+ * fetch/XHR accept relative URLs ("/api/users"), but a log entry needs an
+ * absolute one - both for display (parsing origin/path/query/hash) and for
+ * Copy as cURL, which is useless without a host. Falls back to the raw
+ * input for schemes URL can't resolve against a page origin.
+ */
+function resolveUrl(url: string): string {
+  try {
+    return new URL(url, window.location.href).toString();
+  } catch {
+    return url;
+  }
 }
 
 function getFetchMethod(request: Request | null, config?: RequestInit): HttpMethod {

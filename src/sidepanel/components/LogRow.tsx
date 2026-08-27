@@ -1,5 +1,6 @@
 import type { NetworkLog } from '../../types';
 import { summarizeBody } from '../../utils/parseBody';
+import { parseUrl } from '../../utils/parseUrl';
 import { ChevronIcon } from './icons';
 import { LogDetail } from './LogDetail';
 
@@ -11,6 +12,8 @@ interface LogRowProps {
 
 export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
   const summary = summarizeBody(log.resBody);
+  const { pathname, search, hash, queryParams } = parseUrl(log.url);
+  const paramCount = Object.keys(queryParams).length;
 
   return (
     <div
@@ -22,6 +25,7 @@ export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
     >
       <button
         onClick={onToggle}
+        title={log.url}
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--bg-hover)]"
       >
         <span className={getStatusDotClass(log.status)} title={`HTTP ${log.status}`} />
@@ -31,10 +35,20 @@ export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-mono text-[11px] text-[var(--text-secondary)]">
-            {shortenUrl(log.url)}
+            {pathname}
+            {search && <span className="text-[var(--text-tertiary)]">{search}</span>}
+            {hash && <span className="text-[var(--accent)]">{hash}</span>}
           </span>
           <span className="block truncate text-[10px] text-[var(--text-tertiary)]">{summary}</span>
         </span>
+        {paramCount > 0 && (
+          <span
+            title={`${paramCount} query param${paramCount === 1 ? '' : 's'}`}
+            className="shrink-0 rounded-full bg-[var(--bg-inset)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--text-tertiary)] tabular-nums"
+          >
+            ?{paramCount}
+          </span>
+        )}
         <span className="ml-1 shrink-0 text-[10px] text-[var(--text-tertiary)] tabular-nums">
           {log.duration}ms
         </span>
@@ -44,17 +58,6 @@ export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
       {isExpanded && <LogDetail log={log} />}
     </div>
   );
-}
-
-function shortenUrl(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    return `${parsedUrl.pathname}${
-      parsedUrl.search.length > 20 ? `${parsedUrl.search.slice(0, 20)}...` : parsedUrl.search
-    }`;
-  } catch {
-    return url;
-  }
 }
 
 function getStatusDotClass(status: number): string {

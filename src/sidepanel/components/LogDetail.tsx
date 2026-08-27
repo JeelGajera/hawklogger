@@ -3,6 +3,7 @@ import type { NetworkLog } from '../../types';
 import { buildCurl } from '../../utils/buildCurl';
 import { buildMarkdown } from '../../utils/buildMarkdown';
 import { formatBody } from '../../utils/parseBody';
+import { parseUrl } from '../../utils/parseUrl';
 import { redact, redactHeaders, redactStorageSnapshot } from '../../utils/redact';
 import { ConsoleLogList } from './ConsoleLogList';
 import { CheckIcon, CopyIcon, TerminalIcon } from './icons';
@@ -12,9 +13,9 @@ interface LogDetailProps {
 }
 
 export function LogDetail({ log }: LogDetailProps) {
-  const [copiedField, setCopiedField] = useState<'markdown' | 'curl' | null>(null);
+  const [copiedField, setCopiedField] = useState<'markdown' | 'curl' | 'url' | null>(null);
 
-  const copy = (field: 'markdown' | 'curl', text: string) => {
+  const copy = (field: 'markdown' | 'curl' | 'url', text: string) => {
     navigator.clipboard
       .writeText(text)
       .then(() => {
@@ -29,11 +30,30 @@ export function LogDetail({ log }: LogDetailProps) {
   const redactedReqBody = log.reqBody != null ? redact(log.reqBody) : null;
   const redactedResBody = log.resBody != null ? redact(log.resBody) : null;
   const storageSnapshot = log.storageSnapshot != null ? redactStorageSnapshot(log.storageSnapshot) : null;
+  const { origin, pathname, queryParams, hash } = parseUrl(log.url);
+  const hasQueryParams = Object.keys(queryParams).length > 0;
 
   return (
     <div className="hl-animate-in border-t border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-[10px] text-[var(--text-tertiary)]">{log.url}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] text-[var(--text-muted)]">{origin}</div>
+          <button
+            onClick={() => copy('url', log.url)}
+            title="Copy full URL"
+            className="group flex w-full min-w-0 items-center gap-1 text-left"
+          >
+            <span className="min-w-0 flex-1 font-mono text-[11px] break-all text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+              {pathname}
+              {hash && <span className="text-[var(--accent)]">{hash}</span>}
+            </span>
+            {copiedField === 'url' ? (
+              <CheckIcon className="h-3 w-3 shrink-0 text-[var(--success)]" />
+            ) : (
+              <CopyIcon className="h-3 w-3 shrink-0 text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100" />
+            )}
+          </button>
+        </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <CopyButton
             label="cURL"
@@ -55,6 +75,12 @@ export function LogDetail({ log }: LogDetailProps) {
         <div className="mb-3 rounded-lg border border-[var(--danger)] bg-[var(--danger-tint)] px-3 py-2 font-mono text-[11px] text-[var(--danger)]">
           {log.error}
         </div>
+      )}
+
+      {hasQueryParams && (
+        <Section title="QUERY PARAMS">
+          <DetailBlock label={`${Object.keys(queryParams).length} param(s)`} data={queryParams} />
+        </Section>
       )}
 
       <Section title="REQUEST">

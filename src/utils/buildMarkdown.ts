@@ -1,5 +1,6 @@
 import type { ConsoleLogEntry, NetworkLog } from '../types';
 import { formatBody } from './parseBody';
+import { parseUrl } from './parseUrl';
 import { redact, redactHeaders, redactStorageSnapshot } from './redact';
 
 export function buildMarkdown(log: NetworkLog): string {
@@ -21,6 +22,16 @@ export function buildMarkdown(log: NetworkLog): string {
   }
 
   lines.push('');
+
+  const { queryParams } = parseUrl(log.url);
+  if (Object.keys(queryParams).length > 0) {
+    lines.push('### Query Params');
+    lines.push('');
+    lines.push('```json');
+    lines.push(JSON.stringify(queryParams, null, 2));
+    lines.push('```');
+    lines.push('');
+  }
 
   const redactedReqHeaders = redactHeaders(log.reqHeaders);
   if (Object.keys(redactedReqHeaders).length > 0) {
