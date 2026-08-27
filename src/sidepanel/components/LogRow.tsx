@@ -1,5 +1,6 @@
 import type { NetworkLog } from '../../types';
 import { summarizeBody } from '../../utils/parseBody';
+import { ChevronIcon } from './icons';
 import { LogDetail } from './LogDetail';
 
 interface LogRowProps {
@@ -14,12 +15,14 @@ export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
   return (
     <div
       className={
-        log.isError ? 'border-b border-[#1e1e1e] bg-[#1a0f0f]' : 'border-b border-[#1e1e1e]'
+        log.isError
+          ? 'border-b border-[var(--border-subtle)] bg-[var(--danger-tint)]'
+          : 'border-b border-[var(--border-subtle)] transition-colors'
       }
     >
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[#1a1a1a]"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--bg-hover)]"
       >
         <span className={getStatusDotClass(log.status)} title={`HTTP ${log.status}`} />
         <span className={getMethodClass(log.method)}>{log.method}</span>
@@ -27,13 +30,15 @@ export function LogRow({ log, isExpanded, onToggle }: LogRowProps) {
           {log.status === 0 ? 'ERR' : log.status}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-mono text-[11px] text-[#aaa]">
+          <span className="block truncate font-mono text-[11px] text-[var(--text-secondary)]">
             {shortenUrl(log.url)}
           </span>
-          <span className="block truncate text-[10px] text-[#555]">{summary}</span>
+          <span className="block truncate text-[10px] text-[var(--text-tertiary)]">{summary}</span>
         </span>
-        <span className="ml-1 shrink-0 text-[10px] text-[#555]">{log.duration}ms</span>
-        <span className="shrink-0 text-[10px] text-[#444]">{isExpanded ? '▲' : '▼'}</span>
+        <span className="ml-1 shrink-0 text-[10px] text-[var(--text-tertiary)] tabular-nums">
+          {log.duration}ms
+        </span>
+        <ChevronIcon className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" open={isExpanded} />
       </button>
 
       {isExpanded && <LogDetail log={log} />}
@@ -53,26 +58,24 @@ function shortenUrl(url: string): string {
 }
 
 function getStatusDotClass(status: number): string {
-  if (status === 0) return 'h-2 w-2 shrink-0 rounded-full bg-[#E24B4A]';
-  if (status >= 500) return 'h-2 w-2 shrink-0 rounded-full bg-[#E24B4A]';
-  if (status >= 400) return 'h-2 w-2 shrink-0 rounded-full bg-[#F59E0B]';
-  if (status >= 300) return 'h-2 w-2 shrink-0 rounded-full bg-[#3B82F6]';
-  return 'h-2 w-2 shrink-0 rounded-full bg-[#10B981]';
+  if (status === 0 || status >= 500) return 'h-2 w-2 shrink-0 rounded-full bg-[var(--danger)]';
+  if (status >= 400) return 'h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]';
+  if (status >= 300) return 'h-2 w-2 shrink-0 rounded-full bg-[var(--info)]';
+  return 'h-2 w-2 shrink-0 rounded-full bg-[var(--success)]';
 }
 
 function getStatusTextClass(status: number): string {
-  if (status === 0) return 'w-8 shrink-0 text-[11px] text-[#E24B4A]';
-  if (status >= 500) return 'w-8 shrink-0 text-[11px] text-[#E24B4A]';
-  if (status >= 400) return 'w-8 shrink-0 text-[11px] text-[#F59E0B]';
-  if (status >= 300) return 'w-8 shrink-0 text-[11px] text-[#3B82F6]';
-  return 'w-8 shrink-0 text-[11px] text-[#10B981]';
+  if (status === 0 || status >= 500) return 'w-8 shrink-0 text-[11px] font-medium text-[var(--danger)]';
+  if (status >= 400) return 'w-8 shrink-0 text-[11px] font-medium text-[var(--warning)]';
+  if (status >= 300) return 'w-8 shrink-0 text-[11px] font-medium text-[var(--info)]';
+  return 'w-8 shrink-0 text-[11px] font-medium text-[var(--success)]';
 }
 
 function getMethodClass(method: string): string {
-  if (method === 'GET') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#10B981]';
-  if (method === 'POST') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#3B82F6]';
-  if (method === 'PUT') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#F59E0B]';
-  if (method === 'PATCH') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#8B5CF6]';
-  if (method === 'DELETE') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#E24B4A]';
-  return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[#888]';
+  if (method === 'GET') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--success)]';
+  if (method === 'POST') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--info)]';
+  if (method === 'PUT') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--warning)]';
+  if (method === 'PATCH') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--accent)]';
+  if (method === 'DELETE') return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--danger)]';
+  return 'w-12 shrink-0 font-mono text-[10px] font-bold text-[var(--text-tertiary)]';
 }

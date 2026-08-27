@@ -26,6 +26,12 @@ No DevTools required. The side panel stays open while you navigate.
 - **Export All**: copy every visible (filtered) log as one Markdown file,
   built on a background Web Worker so exporting a large session never
   freezes the panel.
+- **Copy as cURL**: one click to get a ready-to-paste, redacted `curl`
+  command for any request, alongside the existing Markdown copy.
+- **Light / dark / system theme**, matched to the OS by default and
+  switchable per-panel from the toolbar.
+- Keyboard shortcuts: `/` focuses search, `Esc` closes Settings or blurs
+  search.
 
 ## Failure Snapshot
 
@@ -65,11 +71,14 @@ Then load the extension in Chrome:
 2. Network requests are captured automatically, even before the side panel opens.
 3. Open the HawkLogger side panel when you need to inspect or copy captured logs.
 4. Click a request row to expand it.
-5. Click Copy as MD to copy the full snapshot.
-6. Paste into your bug ticket or team chat.
+5. Click Copy as MD for the full Markdown snapshot, or Copy as cURL for a
+   redacted `curl` command.
+6. Paste into your bug ticket, team chat, or terminal.
 
 Use the Errors button to show only failed requests.
-Use Settings to choose all-site capture or saved-site-only capture.
+Use Settings to choose all-site capture or saved-site-only capture, and to
+toggle Failure Snapshot data types.
+Use the theme switch in the top-right to match system, light, or dark.
 
 ## Markdown Output
 
@@ -91,7 +100,10 @@ before display and before copy.
 - [x] Console log capture with request correlation (Failure Snapshot).
 - [x] Export all logs as a single Markdown file.
 - [x] Persist logs across page reload with `chrome.storage.session`.
+- [x] Light / dark / system theme.
+- [x] Copy as cURL.
 - [ ] Custom redaction rules.
+- [ ] Pin/bookmark specific requests so they survive a navigation-triggered clear.
 - [ ] Chrome Web Store publication.
 
 ## Contributing

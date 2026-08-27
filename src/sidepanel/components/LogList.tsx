@@ -11,9 +11,11 @@ export function LogList({ logs }: LogListProps) {
 
   if (logs.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center text-xs text-[#444]">
-        <div className="mb-2 text-2xl font-bold text-[#5B4FCF]">HL</div>
-        <div>No requests captured yet.</div>
+      <div className="flex flex-1 flex-col items-center justify-center text-xs text-[var(--text-muted)]">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--bg-inset)] text-lg font-bold text-[var(--text-tertiary)]">
+          HL
+        </div>
+        <div className="text-[var(--text-secondary)]">No requests captured yet.</div>
         <div className="mt-1 text-[10px]">Make a network request on this page.</div>
       </div>
     );
